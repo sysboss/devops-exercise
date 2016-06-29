@@ -1,0 +1,111 @@
+#!/usr/bin/env python
+
+import subprocess
+import time
+import os
+import sys
+import yaml
+import re
+
+try:
+    import json
+except ImportError:
+    import simplejson as json
+
+host_to_group_re = '(.*?)(?:-[0-9]+)?$'
+host_provider_re = '(\S+)\s*running \(([^)]+)\)'
+ssh_user = 'vagrant'
+private_key_file = '~/.vagrant.d/insecure_private_key'
+
+class Inventory(object):
+    def __init__(self):
+        self.inventory = self._empty_inventory()
+
+    def _empty_inventory(self):
+        return dict(_meta=dict(hostvars=dict()))
+
+    def add_host_to_group(self, group, host):
+        if group in self.inventory:
+            self.inventory[group].append(host)
+        else:
+            self.inventory[group] = [host]
+
+    def add_hostvars(self, host, hostvars):
+        self.inventory['_meta']['hostvars'][host] = hostvars
+
+    def to_json(self):
+        return json.dumps(self.inventory, indent=True)
+
+
+def find_in_parent_dirs(path):
+    cwd = os.getcwd()
+    while cwd != '/':
+        check_path = os.path.join(cwd, path)
+        if os.path.exists(check_path):
+            return check_path
+        cwd = os.path.dirname(cwd)
+
+    return None
+
+def get_ip(machine_id, provider):
+    if provider == 'virtualbox':
+        vminfo = subprocess.check_output('vboxmanage showvminfo %s' % machine_id, shell=True)
+        match = re.search('NIC ([0-9]+):.*Host-only Interface', vminfo)
+        if match is None:
+            raise RuntimeError("No host-only interface for %s" % machine_id)
+
+        nic_id = int(match.groups()[0])
+        prop_name = '/VirtualBox/GuestInfo/Net/%d/V4/IP' % (nic_id - 1)
+        prop_value = subprocess.check_output('vboxmanage guestproperty get %s %s' % (machine_id, prop_name), shell=True)
+        match = re.match('Value: (.*)', prop_value)
+        if match is None:
+            raise RuntimeError("No IP for NIC %d machine %s" % (nic_id, machine_id))
+        return match.groups()[0]
+
+    elif provider == 'lxc':
+        lxc_ls = subprocess.check_output('sudo lxc-ls --fancy --fancy-format name,state,ipv4 %s' % machine_id, shell=True).splitlines()
+        vminfo = lxc_ls[-1].split()
+        if len(vminfo) < 3:
+            raise RuntimeError("Error parsing lxc-ls: no such machine %s" % machine_id)
+
+        if vminfo[1] != 'RUNNING':
+            raise RuntimeError("%s isn't running" % machine_id)
+
+        ip = vminfo[2]
+        ip = ip.replace(',', '')
+        if ip == '-':
+            raise RuntimeError("No IP for %s" % machine_id)
+
+        return ip
+    else:
+        raise RuntimeError("Unsupported provider: %s" % provider)
+
+status = subprocess.check_output('vagrant status', shell=True)
+inventory = Inventory()
+
+for name, provider in re.findall(host_provider_re, status):
+    match = re.match(host_to_group_re, name)
+    if match is None:
+        group = 'ungrouped'
+    else:
+        group = match.groups()[0]
+
+    inventory.add_host_to_group(group, name)
+
+    id_file = find_in_parent_dirs('.vagrant/machines/%s/%s/id' % (name, provider))
+    if id_file is None:
+        raise ValueError("Machine %s (%s) doesn't exist in .vagrant dir" % (name, provider))
+
+    machine_id = file(id_file).read()
+    ssh_host = get_ip(machine_id, provider)
+
+    key = find_in_parent_dirs('.vagrant/machines/%s/%s/private_key' % (name, provider))
+    if not key:
+        key = private_key_file
+
+    hostvars = dict(ansible_ssh_host=ssh_host, ansible_ssh_user=ssh_user,
+                    ansible_ssh_private_key_file=key)
+
+    inventory.add_hostvars(name, hostvars)
+
+print inventory.to_json()
