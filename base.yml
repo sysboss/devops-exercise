@@ -28,3 +28,65 @@
     - { role: nodejs, tags: nodejs }
     - { role: bamboo, tags: bamboo }
     - { role: panda, tags: panda }
+
+- name: Install Monit
+  hosts: all
+  sudo: yes
+  vars:
+    monit_cycle: 120
+    monit_log_destination: syslog
+    monit_eventqueue_dir: /var/lib/monit/events
+    monit_webinterface_enabled: true
+    monit_webinterface_acl_rules:
+      - "localhost"
+    monit_webinterface_bind: 0.0.0.0
+    monit_webinterface_acl_rules:
+      - "localhost"
+      - "192.168.1.0/255.255.255.0"
+      - "10.0.0.0/8"
+    monit_mail_enabled: false
+    monit_services:
+      - name: sshd
+        type: process
+        target: /var/run/sshd.pid
+        start: /usr/sbin/service sshd start
+        stop: /usr/sbin/service sshd stop
+
+      - name: monit
+        type: process
+        target: /var/run/redis/6379.pid
+        start: /etc/init.d/redis_6379 start
+        stop: /etc/init.d/redis_6379 stop
+        rules:
+          - "if cpu usage > 95% for 3 cycles then restart"
+          - "if failed host 127.0.0.1 port 6379 then restart"
+          - "if 5 restarts within 5 cycles then timeout"
+
+      - name: bamboo-app
+        type: process
+        target: /tmp/bamboo-app/run/bamboo.pid
+        start: /etc/init.d/bamboo-app start
+        stop: /etc/init.d/bamboo-app stop
+        rules:
+          - "if failed port 8080 protocol http then restart"
+          - "if 5 restarts within 5 cycles then timeout"
+
+      - name: panda-app
+        type: process
+        target: /tmp/panda-app/run/panda.pid
+        start: /etc/init.d/panda-app start
+        stop: /etc/init.d/panda-app stop
+        rules:
+          - "if failed port 8081 protocol http then restart"
+          - "if 5 restarts within 5 cycles then timeout"
+      - name: redis
+        type: process
+        target: /var/run/redis/6379.pid
+        start: /etc/init.d/redis_6379 start
+        stop: /etc/init.d/redis_6379 stop
+        rules:
+          - "if cpu usage > 95% for 3 cycles then restart"
+          - "if failed host 127.0.0.1 port 6379 then restart"
+          - "if 5 restarts within 5 cycles then timeout"
+  roles:
+    - { role: ansible-role-monit, tags: monit }
