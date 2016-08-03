@@ -1,8 +1,22 @@
 ---
-- name: Install dependencies
-  sudo: true
-  apt: pkg={{item}} state=installed
-  with_items:
-    - nodejs
-    - npm
+- name: Ensure apt-transport-https is installed
+  apt: name=apt-transport-https state=present
 
+- name: Add Nodesource apt key
+  apt_key:
+    url: https://deb.nodesource.com/gpgkey/nodesource.gpg.key
+    state: present
+
+- name: Add NodeSource repository for Nodejs
+  apt_repository: repo="deb https://deb.nodesource.com/node_0.12 {{ ansible_distribution_release }} main" state=present
+
+- name: Add NodeSource src repository for Nodejs
+  apt_repository: repo="deb-src https://deb.nodesource.com/node_0.12 {{ ansible_distribution_release }} main" state=present
+  register: node_repo
+
+- name: Update apt cache if repo was added
+  apt: update_cache=yes
+  when: node_repo.changed
+
+- name: Ensure Node.js and npm are installed
+  apt: name=nodejs state=present
