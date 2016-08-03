@@ -27,3 +27,4 @@
   roles:
     - { role: nodejs, tags: nodejs }
     - { role: bamboo, tags: bamboo }
+    - { role: panda, tags: panda }
