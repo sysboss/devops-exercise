@@ -4,6 +4,7 @@
   "description": "I can haz bamboo!",
   "main": "bamboo.js",
   "dependencies": {
-    "httpdispatcher": "^1.0.0"
+    "httpdispatcher": "^1.0.0",
+    "redis": "^2.6.2"
   }
 }
