@@ -1,0 +1,15 @@
+---
+- name: copy panda app
+  copy: src=panda-app dest=/tmp/ owner=root group=root mode=755
+
+- name: copy init script
+  copy: src=init dest=/etc/init.d/panda-app group=root mode=755
+
+- name: npm install
+  npm: path=/tmp/panda-app
+
+- name: Start Panda-App
+  service: name=panda-app state=started
+
+- name: Enable Panda-App
+  service: name=panda-app enabled=yes

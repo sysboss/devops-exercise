@@ -1,0 +1,9 @@
+{
+  "name": "panda_app",
+  "version": "1.0.0",
+  "description": "I can haz panda as well!",
+  "main": "panda.js",
+  "dependencies": {
+    "express": "^4.14.0"
+  }
+}
