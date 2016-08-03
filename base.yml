@@ -6,6 +6,21 @@
     - name: Set hostname
       hostname: name={{inventory_hostname}}
 
+    - name: Install useful tools
+      sudo: true
+      apt: pkg={{item}} state=installed update_cache=yes
+      with_items:
+        - wget
+        - vim
+
+- name: Install Redis
+  hosts: all
+  sudo: yes
+  vars:
+    - redis_bind: 127.0.0.1
+  roles:
+    - { role: ansible-redis, tags: redis }
+
 - name: Base bamboo service
   hosts: base
   sudo: yes
