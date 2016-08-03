@@ -2,5 +2,14 @@
 - name: copy bamboo app
   copy: src=bamboo-app dest=/tmp/ owner=root group=root mode=755
 
+- name: copy init script
+  copy: src=init dest=/etc/init.d/bamboo-app group=root mode=755
+
 - name: npm install
   npm: path=/tmp/bamboo-app
+
+- name: Start Bamboo-App
+  service: name=bamboo-app state=started
+
+- name: Enable Bamboo-App
+  service: name=bamboo-app enabled=yes
